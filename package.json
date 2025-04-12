@@ -1,0 +1,25 @@
+{
+  "name": "honey-comb",
+  "author": "justinjhendrick",
+  "version": "1.0.0",
+  "keywords": ["pebble-watchface", "hexagon", "colorful", "analog"],
+  "private": false,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "honey-comb",
+    "uuid": "cf47074e-5e73-433f-ba1e-8d91f053f07a",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "basalt",
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [],
+    "resources": {
+      "media": []
+    }
+  }
+}
