@@ -80,14 +80,29 @@ static void fast_forward_time(struct tm* now) {
   now->tm_wday = now->tm_sec % 7;      /* Day of week. [0-6] */
 }
 
-static void draw_hexagon(GContext* ctx, GPoint bottom_point, int H) {
+static void draw_hexagon(GContext* ctx, GPoint center, int H) {
   fill_hexagon_points(H);
   graphics_context_set_stroke_width(ctx, 5);
-  graphics_context_set_fill_color(ctx, GColorChromeYellow);
   graphics_context_set_stroke_color(ctx, GColorYellow);
-  gpath_move_to(s_hexagon, bottom_point);
-  gpath_draw_filled(ctx, s_hexagon);
+  gpath_move_to(s_hexagon, center);
   gpath_draw_outline(ctx, s_hexagon);
+}
+
+static void tessellate(GContext* ctx, GRect bounds, int H) {
+  int W = hex_width(H);
+  int hsl = hex_half_side_length(H);
+  int y_stride = H / 2 + hsl;
+  int x_stride = W;
+  int row_stagger = false;
+  int y_begin = bounds.origin.y - hsl;
+  for (int y = y_begin; y <= bounds.size.h + y_stride; y += y_stride) {
+    int x_begin = -x_stride - row_stagger * W / 2;
+    for (int x = x_begin; x <= bounds.size.w + x_stride; x += x_stride) {
+      GPoint center = GPoint(x, y);
+      draw_hexagon(ctx, center, H);
+    }
+    row_stagger = !row_stagger;
+  }
 }
 
 static void update_layer(Layer* layer, GContext* ctx) {
@@ -97,23 +112,17 @@ static void update_layer(Layer* layer, GContext* ctx) {
     fast_forward_time(now);
   }
 
+  int hex_boundary_stroke_width = 5;
   GRect bounds = layer_get_bounds(layer);
   GPoint center = grect_center_point(&bounds);
-  int W = bounds.size.w / 2;
-  int H = hex_height(W);
-  int hsl = hex_half_side_length(H);
-  GPoint left = GPoint(center.x - W / 2, H / 2);
-  GPoint right = GPoint(center.x + W / 2, H / 2);
-  GPoint bot = GPoint(center.x, right.y + H / 2 + hsl);
-  draw_hexagon(ctx, left, H);
-  draw_hexagon(ctx, right, H);
-  draw_hexagon(ctx, bot, H);
+  int H = bounds.size.h * 4 / 7;
+  tessellate(ctx, bounds, H);
 }
 
 static void window_load(Window* window) {
   Layer* window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  window_set_background_color(s_window, GColorBlack);
+  window_set_background_color(s_window, GColorChromeYellow);
   s_layer = layer_create(bounds);
   layer_set_update_proc(s_layer, update_layer);
   layer_add_child(window_layer, s_layer);
@@ -147,26 +156,3 @@ int main(void) {
   app_event_loop();
   deinit();
 }
-
-//static void draw_color_swatch_grid(GContext* ctx, GRect bounds) {
-//  int w = bounds.size.w / 8;
-//  int h = bounds.size.h / 8;
-//  GColor color;
-//  color.argb = 0b11000000;
-//
-//  GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_14);
-//  memset(s_buffer, 0, BUFFER_LEN);
-//  graphics_context_set_stroke_width(ctx, 1);
-//  for (int y = 0; y < bounds.size.h; y += h) {
-//    for (int x = 0; x < bounds.size.w; x += w) {
-//      graphics_context_set_fill_color(ctx, color);
-//      graphics_context_set_stroke_color(ctx, GColorBlack);
-//      GRect bbox = GRect(x, y, w, h);
-//      graphics_fill_rect(ctx, bbox, 0, GCornerNone);
-//      graphics_draw_rect(ctx, bbox);
-//      snprintf(s_buffer, BUFFER_LEN, "%d", color.argb & 0b00111111);
-//      graphics_draw_text(ctx, s_buffer, font, bbox, GTextOverflowModeFill, GTextAlignmentLeft, NULL);
-//      color.argb += 1;
-//    }
-//  }
-//}
