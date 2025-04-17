@@ -3,6 +3,9 @@
 #define DEBUG_TIME (false)
 #define BUFFER_LEN (100)
 #define DEG_PER_MIN (360 / 60)
+#define COL_BG (PBL_IF_BW_ELSE(GColorWhite, GColorChromeYellow))
+#define COL_LT (PBL_IF_BW_ELSE(GColorBlack, GColorYellow))
+#define COL_DK (PBL_IF_BW_ELSE(GColorBlack, GColorBulgarianRose))
 
 static Window* s_window;
 static Layer* s_layer;
@@ -107,7 +110,7 @@ static void fast_forward_time(struct tm* now) {
 static void draw_hexagon(GContext* ctx, GPoint center, int stroke_w, int H) {
   fill_hexagon_points(H);
   graphics_context_set_stroke_width(ctx, stroke_w);
-  graphics_context_set_stroke_color(ctx, GColorYellow);
+  graphics_context_set_stroke_color(ctx, COL_LT);
   gpath_move_to(s_hexagon, center);
   gpath_draw_outline(ctx, s_hexagon);
 }
@@ -118,10 +121,10 @@ static void tessellate(GContext* ctx, GRect bounds, int stroke_w, int H, GPoint*
   int y_stride = H / 2 + hsl;
   int x_stride = W;
   int row_stagger = false;
-  int y_begin = bounds.origin.y - hsl;
+  int y_begin = bounds.origin.y - hsl + 1;
   int visible_center_count = 0;
   for (int y = y_begin; y <= bounds.size.h + y_stride; y += y_stride) {
-    int x_begin = -x_stride - row_stagger * W / 2;
+    int x_begin = -x_stride - row_stagger * W / 2 + W / 8;
     for (int x = x_begin; x <= bounds.size.w + x_stride; x += x_stride) {
       GPoint center = GPoint(x, y);
       draw_hexagon(ctx, center, stroke_w, H);
@@ -166,16 +169,16 @@ static void draw_hand(GContext* ctx, GPoint center, int angle_deg, int hand_widt
   gpath_move_to(s_arrow, center);
 
   // hand fill
-  graphics_context_set_fill_color(ctx, GColorChromeYellow);
+  graphics_context_set_fill_color(ctx, COL_BG);
   gpath_draw_filled(ctx, s_arrow);
 
   // hand outline
   graphics_context_set_stroke_width(ctx, 3);
-  graphics_context_set_stroke_color(ctx, GColorBulgarianRose);
+  graphics_context_set_stroke_color(ctx, COL_DK);
   gpath_draw_outline(ctx, s_arrow);
 
   // Circle at the base to smooth out the rotation
-  graphics_context_set_fill_color(ctx, GColorBulgarianRose);
+  graphics_context_set_fill_color(ctx, COL_DK);
   graphics_fill_circle(ctx, center, 2);
 }
 
@@ -247,7 +250,7 @@ static void draw_one_digit(GContext* ctx, int digit, GRect bbox) {
 static void draw_digits(GContext* ctx, int digits, GRect bbox) {
   int tens = digits / 10;
   GRect ones_bbox;
-  graphics_context_set_stroke_color(ctx, GColorBulgarianRose);
+  graphics_context_set_stroke_color(ctx, COL_DK);
   graphics_context_set_stroke_width(ctx, 1);
   if (tens != 0) {
     GRect tens_bbox = GRect(bbox.origin.x,                   bbox.origin.y, bbox.size.w / 2, bbox.size.h);
@@ -261,11 +264,12 @@ static void draw_digits(GContext* ctx, int digits, GRect bbox) {
 }
 
 static void draw_ticks(GContext* ctx, GPoint center, int radius, bool hour_text) {
-  int text_bbox_height = 12;
-  graphics_context_set_stroke_color(ctx, GColorBulgarianRose);
+  int text_bbox_height = max(10, radius / 4);
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "radius / 6 = %d, text_bbox_height %d", radius / 6, text_bbox_height);
+  graphics_context_set_stroke_color(ctx, COL_DK);
   for (int16_t tick_minute = 0; tick_minute < 60; tick_minute += 5) {
     int tick_deg = tick_minute * DEG_PER_MIN;
-    int tick_length = radius * 9 / 20;
+    int tick_length = radius / 2;
     GPoint minute_tick_outer = cartesian_from_polar(center, radius - 1, tick_deg);
     GPoint minute_tick_inner = cartesian_from_polar(center, radius - tick_length, tick_deg);
     if (tick_minute % 10 == 0) {
@@ -274,6 +278,9 @@ static void draw_ticks(GContext* ctx, GPoint center, int radius, bool hour_text)
       GRect text_bbox = rect_from_midpoint(text_mp, GSize(text_bbox_height, text_bbox_height));
       if (hour_text) {
         int tick_hour = tick_minute * 12 / 60;
+        if (tick_hour == 0) {
+          tick_hour = 12;
+        }
         draw_digits(ctx, tick_hour, text_bbox);
       } else {
         draw_digits(ctx, tick_minute, text_bbox);
@@ -283,9 +290,6 @@ static void draw_ticks(GContext* ctx, GPoint center, int radius, bool hour_text)
     }
 
     graphics_context_set_stroke_width(ctx, 1);
-    if (tick_minute % 15 == 0) {
-      graphics_context_set_stroke_width(ctx, 3);
-    }
     graphics_draw_line(ctx, minute_tick_inner, minute_tick_outer);
   }
 }
@@ -298,13 +302,12 @@ static void update_layer(Layer* layer, GContext* ctx) {
   }
 
   GRect bounds = layer_get_bounds(layer);
-  int H = bounds.size.h * 4 / 7;
+  int H = (bounds.size.h - 2) * 4 / 7;
   int W = hex_width(H);
   int hex_boundary_stroke_width = max(3, H / 30);
   GPoint visible_centers[10];
   tessellate(ctx, bounds, hex_boundary_stroke_width, H, visible_centers);
   int radius = W / 2 - hex_boundary_stroke_width / 2;
-  int hand_length = radius * 9 / 10;
   GPoint hours_center = visible_centers[0];
 
   // draw hours watchface in a hexagon
@@ -312,18 +315,22 @@ static void update_layer(Layer* layer, GContext* ctx) {
   int minutes_per_hour_hand_rev = 60 * 12;
   int minutes_elapsed = now->tm_hour * 60 + now->tm_min;
   int hour_angle_degrees = 360 * minutes_elapsed / minutes_per_hour_hand_rev;
-  draw_hand(ctx, hours_center, hour_angle_degrees % 360, 8, hand_length);
+  int hour_hand_width = 9;
+  int hour_hand_length = radius * 7 / 10;
+  draw_hand(ctx, hours_center, hour_angle_degrees % 360, hour_hand_width, hour_hand_length);
 
   // draw minutes watchface in a hexagon
   GPoint minutes_center = visible_centers[1];
   draw_ticks(ctx, minutes_center, radius, false);
-  draw_hand(ctx, minutes_center, now->tm_min * DEG_PER_MIN, 8, hand_length);
+  int minute_hand_width = 8;
+  int minute_hand_length = radius * 9 / 10;
+  draw_hand(ctx, minutes_center, now->tm_min * DEG_PER_MIN, minute_hand_width, minute_hand_length);
 }
 
 static void window_load(Window* window) {
   Layer* window_layer = window_get_root_layer(window);
   GRect bounds = layer_get_bounds(window_layer);
-  window_set_background_color(s_window, GColorChromeYellow);
+  window_set_background_color(s_window, COL_BG);
   s_layer = layer_create(bounds);
   layer_set_update_proc(s_layer, update_layer);
   layer_add_child(window_layer, s_layer);
