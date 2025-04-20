@@ -2,10 +2,18 @@
 
 ## Pebble Watch Face
 
+### Aplite
+
+![screenshot aplite](screenshot_aplite.png)
+
 ### Basalt
 
-![screenshot small rect](screenshot_basalt.png)
+![screenshot aplite](screenshot_basalt.png)
+
+### Diorite
+
+![screenshot aplite](screenshot_diorite.png)
 
 ### Emery
 
-![screenshot big rect](screenshot_emery.png)
+![screenshot emery](screenshot_emery.png)

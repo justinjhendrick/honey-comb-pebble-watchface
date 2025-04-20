@@ -113,7 +113,6 @@ static void tessellate(GContext* ctx, GPoint origin, int H, bool start_left, int
     for (int c = 0; c < rows[r]; c++) {
       int x = x_begin + x_stride * c;
       GPoint center = GPoint(x, y);
-      draw_hexagon(ctx, center, H);
       centers[i++] = center;
     }
     row_stagger = !row_stagger;
@@ -204,7 +203,6 @@ static char wday_letter(int wday_idx) {
 }
 
 static void draw_wday(GContext* ctx, GPoint center, int big_hex_height, int wday) {
-  graphics_context_set_stroke_width(ctx, 1);
   GPoint centers[7];
   int rows[3] = {2, 3, 2};
   int big_hex_hsl = hex_half_side_length(big_hex_height);
@@ -212,15 +210,19 @@ static void draw_wday(GContext* ctx, GPoint center, int big_hex_height, int wday
   int lil_hex_height = 4 * big_hex_hsl / 5;
   int lil_hex_width = hex_width(lil_hex_height);
   tessellate(ctx, GPoint(center.x + lil_hex_width / 2 - 4, center.y - big_hex_hsl), lil_hex_height, false, rows, 3, centers);
+  graphics_context_set_stroke_width(ctx, 1);
   for (int center_idx = 0; center_idx < 7; center_idx++) {
     GPoint center = centers[center_idx];
+
+    graphics_context_set_stroke_color(ctx, COL_DK);
+    draw_hexagon(ctx, center, lil_hex_height);
+
     if (wday == center_idx) {
-      graphics_context_set_stroke_color(ctx, COL_LT);
+      graphics_context_set_stroke_color(ctx, COL_BG);
       graphics_context_set_fill_color(ctx, COL_DK);
       fill_hexagon(ctx, center, lil_hex_height);
     } else {
       graphics_context_set_stroke_color(ctx, COL_DK);
-      graphics_context_set_fill_color(ctx, COL_LT);
     }
     GRect text_bbox = rect_from_midpoint(center, GSize(lil_hex_height / 2, lil_hex_width / 2));
     draw_one_letter(ctx, wday_letter(center_idx), text_bbox);
@@ -243,6 +245,9 @@ static void update_layer(Layer* layer, GContext* ctx) {
   graphics_context_set_stroke_color(ctx, COL_LT);
   int rows[2] = {3, 3};
   tessellate(ctx, bounds.origin, H, true, rows, 2, hex_centers);
+  for (int i = 0; i < 6; i++) {
+    draw_hexagon(ctx, hex_centers[i], H);
+  }
   int radius = W / 2 - hex_boundary_stroke_width / 2;
   GPoint hours_center = hex_centers[1];
 
