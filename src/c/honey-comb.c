@@ -240,11 +240,12 @@ static void update_layer(Layer* layer, GContext* ctx) {
   int H = (bounds.size.h - 2) * 4 / 7;
   int W = hex_width(H);
   int hex_boundary_stroke_width = max(3, H / 30);
-  GPoint hex_centers[10];
+  int rows[2] = {3, 3};
+  GPoint hex_centers[6];
+  tessellate(ctx, bounds.origin, H, true, rows, 2, hex_centers);
+
   graphics_context_set_stroke_width(ctx, hex_boundary_stroke_width);
   graphics_context_set_stroke_color(ctx, COL_LT);
-  int rows[2] = {3, 3};
-  tessellate(ctx, bounds.origin, H, true, rows, 2, hex_centers);
   for (int i = 0; i < 6; i++) {
     draw_hexagon(ctx, hex_centers[i], H);
   }
