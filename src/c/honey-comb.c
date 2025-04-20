@@ -248,6 +248,10 @@ static int draw_lil_hexes(GContext* ctx, GRect bounds, int big_hex_height, GPoin
     bounds.origin.x + x_adjust,
     bounds.origin.y - y_stride + lil_height / 2 + y_adjust
   );
+  if (PBL_PLATFORM_TYPE_CURRENT == PlatformTypeChalk) {
+    lil_hex_origin.x += hex_width(big_hex_height) / 4 - 5;
+    lil_hex_origin.y += big_hex_height / 4 - 4;
+  }
   tessellate(ctx, lil_hex_origin, lil_height, true, lil_rows, 13, lil_hex_centers);
   graphics_context_set_stroke_width(ctx, 1);
   graphics_context_set_stroke_color(ctx, COL_DK);
@@ -271,6 +275,10 @@ static void draw_big_hexes(
     bounds.origin.x,
     bounds.origin.y + 2 * hex_half_side_length(H) + 2
   );
+  if (PBL_PLATFORM_TYPE_CURRENT == PlatformTypeChalk) {
+    big_hex_origin.x += hex_width(H) / 4 - 4;
+    big_hex_origin.y += H / 4 - 5;
+  }
   tessellate(ctx, big_hex_origin, H, true, rows, 2, big_hex_centers);
 
   graphics_context_set_stroke_width(ctx, hex_boundary_stroke_width);
@@ -293,6 +301,9 @@ static void update_layer(Layer* layer, GContext* ctx) {
 
   GRect bounds = layer_get_bounds(layer);
   int H = (bounds.size.h - 2) * 4 / 7;
+  if (PBL_PLATFORM_TYPE_CURRENT == PlatformTypeChalk) {
+    H = H * 9 / 10;
+  }
   int W = hex_width(H);
   int hex_boundary_stroke_width = 5;
   GPoint lil_hex_centers[13 * 10];

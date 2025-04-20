@@ -14,6 +14,11 @@ rebble screenshot screenshot_basalt.png
 
 rebble wipe
 rebble kill
+rebble install --emulator chalk
+rebble screenshot screenshot_chalk.png
+
+rebble wipe
+rebble kill
 rebble install --emulator diorite
 rebble screenshot screenshot_diorite.png
 

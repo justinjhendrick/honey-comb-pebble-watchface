@@ -4,16 +4,20 @@
 
 ### Aplite
 
-![screenshot aplite](screenshot_aplite.png)
+![screenshot](screenshot_aplite.png)
 
 ### Basalt
 
-![screenshot aplite](screenshot_basalt.png)
+![screenshot](screenshot_basalt.png)
+
+### Chalk
+
+![screenshot](screenshot_chalk.png)
 
 ### Diorite
 
-![screenshot aplite](screenshot_diorite.png)
+![screenshot](screenshot_diorite.png)
 
 ### Emery
 
-![screenshot emery](screenshot_emery.png)
+![screenshot](screenshot_emery.png)

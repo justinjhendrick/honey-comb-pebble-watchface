@@ -13,6 +13,7 @@
     "targetPlatforms": [
       "aplite",
       "basalt",
+      "chalk",
       "diorite",
       "emery"
     ],
