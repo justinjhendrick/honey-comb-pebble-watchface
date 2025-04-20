@@ -1,4 +1,4 @@
-# One Handed Minute
+# Honey Comb Pebble Watchface
 
 ## Pebble Watch Face
 

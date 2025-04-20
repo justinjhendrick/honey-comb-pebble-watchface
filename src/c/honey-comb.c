@@ -105,11 +105,10 @@ static void tessellate(GContext* ctx, GPoint origin, int H, bool start_left, int
   int y_stride = H / 2 + hsl;
   int x_stride = W;
   int row_stagger = start_left;
-  int y_begin = origin.y + 2 * hsl + 1;
   int i = 0;
   for (int r = 0; r < num_rows; r++) {
-    int y = y_begin + y_stride * r;
-    int x_begin = origin.x + x_stride / 8 - row_stagger * x_stride / 2;
+    int y = origin.y + y_stride * r;
+    int x_begin = origin.x - row_stagger * x_stride / 2;
     for (int c = 0; c < rows[r]; c++) {
       int x = x_begin + x_stride * c;
       GPoint center = GPoint(x, y);
@@ -164,7 +163,7 @@ static void draw_ticks(GContext* ctx, GPoint center, int radius, bool hour_text)
     GPoint minute_tick_inner = cartesian_from_polar(center, radius - tick_length, tick_deg);
     if (tick_minute % 10 == 0) {
       // put text in the hex corners
-      GPoint text_mp = cartesian_from_polar(center, radius - text_bbox_height / 4, tick_deg);
+      GPoint text_mp = cartesian_from_polar(center, radius - text_bbox_height / 4 - 1, tick_deg);
       GRect text_bbox = rect_from_midpoint(text_mp, GSize(text_bbox_height, text_bbox_height));
       if (hour_text) {
         int tick_hour = tick_minute * 12 / 60;
@@ -202,17 +201,22 @@ static char wday_letter(int wday_idx) {
   }
 }
 
-static void draw_wday(GContext* ctx, GPoint center, int big_hex_height, int wday) {
-  GPoint centers[7];
-  int rows[3] = {2, 3, 2};
-  int big_hex_hsl = hex_half_side_length(big_hex_height);
-  int big_hex_width = hex_width(big_hex_height);
-  int lil_hex_height = 4 * big_hex_hsl / 5;
+static void draw_wday(GContext* ctx, GPoint* lil_hex_centers, int lil_hex_height, int wday) {
+  GPoint wday_centers[7] = {
+    lil_hex_centers[10 * 2 + 6],
+    lil_hex_centers[10 * 2 + 7],
+
+    lil_hex_centers[10 * 3 + 5],
+    lil_hex_centers[10 * 3 + 6],
+    lil_hex_centers[10 * 3 + 7],
+
+    lil_hex_centers[10 * 4 + 6],
+    lil_hex_centers[10 * 4 + 7],
+  };
   int lil_hex_width = hex_width(lil_hex_height);
-  tessellate(ctx, GPoint(center.x + lil_hex_width / 2 - 4, center.y - big_hex_hsl), lil_hex_height, false, rows, 3, centers);
   graphics_context_set_stroke_width(ctx, 1);
   for (int center_idx = 0; center_idx < 7; center_idx++) {
-    GPoint center = centers[center_idx];
+    GPoint center = wday_centers[center_idx];
 
     graphics_context_set_stroke_color(ctx, COL_DK);
     draw_hexagon(ctx, center, lil_hex_height);
@@ -229,6 +233,57 @@ static void draw_wday(GContext* ctx, GPoint center, int big_hex_height, int wday
   }
 }
 
+static int draw_lil_hexes(GContext* ctx, GRect bounds, int big_hex_height, GPoint* lil_hex_centers) {
+  int lil_height = hex_half_side_length(big_hex_height);
+  int lil_rows[13] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+
+  int y_stride = lil_height / 2 + hex_half_side_length(lil_height);
+  int x_adjust = -1;
+  int y_adjust = 5;
+  if (PBL_PLATFORM_TYPE_CURRENT == PlatformTypeEmery) {
+    x_adjust = -7;
+    y_adjust = 3;
+  }
+  GPoint lil_hex_origin = GPoint(
+    bounds.origin.x + x_adjust,
+    bounds.origin.y - y_stride + lil_height / 2 + y_adjust
+  );
+  tessellate(ctx, lil_hex_origin, lil_height, true, lil_rows, 13, lil_hex_centers);
+  graphics_context_set_stroke_width(ctx, 1);
+  graphics_context_set_stroke_color(ctx, COL_DK);
+  for (int i = 0; i < 13 * 10; i++) {
+    draw_hexagon(ctx, lil_hex_centers[i], lil_height);
+  }
+  return lil_height;
+}
+  
+static void draw_big_hexes(
+  GContext* ctx,
+  GRect bounds,
+  int H,
+  int hex_boundary_stroke_width,
+  int HOUR_FACE_HEX_IDX,
+  int MIN_FACE_HEX_IDX,
+  GPoint* big_hex_centers
+) {
+  int rows[2] = {3, 3};
+  GPoint big_hex_origin = GPoint(
+    bounds.origin.x,
+    bounds.origin.y + 2 * hex_half_side_length(H) + 2
+  );
+  tessellate(ctx, big_hex_origin, H, true, rows, 2, big_hex_centers);
+
+  graphics_context_set_stroke_width(ctx, hex_boundary_stroke_width);
+  graphics_context_set_stroke_color(ctx, COL_LT);
+  graphics_context_set_fill_color(ctx, COL_BG);
+  for (int i = 0; i < 6; i++) {
+    if (i == HOUR_FACE_HEX_IDX || i == MIN_FACE_HEX_IDX) {
+      fill_hexagon(ctx, big_hex_centers[i], H);
+    }
+    draw_hexagon(ctx, big_hex_centers[i], H);
+  }
+}
+
 static void update_layer(Layer* layer, GContext* ctx) {
   time_t temp = time(NULL);
   struct tm* now = localtime(&temp);
@@ -236,30 +291,20 @@ static void update_layer(Layer* layer, GContext* ctx) {
     fast_forward_time(now);
   }
 
-
   GRect bounds = layer_get_bounds(layer);
   int H = (bounds.size.h - 2) * 4 / 7;
   int W = hex_width(H);
-  int hex_boundary_stroke_width = max(3, H / 30);
+  int hex_boundary_stroke_width = 5;
+  GPoint lil_hex_centers[13 * 10];
+  int lil_hex_height = draw_lil_hexes(ctx, bounds, H, lil_hex_centers);
 
-  int lil_rows[10] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
-  GPoint lil_hex_centers[100];
-  tessellate(ctx, bounds.origin, H / 10, true, lil_rows, 10, lil_hex_centers);
-  for (int i = 0; i < 100; i++) {
-    draw_hexagon(ctx, lil_hex_centers[i], H);
-  }
+  int HOUR_FACE_HEX_IDX = 1;
+  int MIN_FACE_HEX_IDX = 4;
+  GPoint big_hex_centers[6];
+  draw_big_hexes(ctx, bounds, H, hex_boundary_stroke_width, HOUR_FACE_HEX_IDX, MIN_FACE_HEX_IDX, big_hex_centers);
 
-  int rows[2] = {3, 3};
-  GPoint hex_centers[6];
-  tessellate(ctx, bounds.origin, H, true, rows, 2, hex_centers);
-
-  graphics_context_set_stroke_width(ctx, hex_boundary_stroke_width);
-  graphics_context_set_stroke_color(ctx, COL_LT);
-  for (int i = 0; i < 6; i++) {
-    draw_hexagon(ctx, hex_centers[i], H);
-  }
   int radius = W / 2 - hex_boundary_stroke_width / 2;
-  GPoint hours_center = hex_centers[1];
+  GPoint hours_center = big_hex_centers[HOUR_FACE_HEX_IDX];
 
   // draw hours watchface in a hexagon
   draw_ticks(ctx, hours_center, radius, true);
@@ -271,14 +316,14 @@ static void update_layer(Layer* layer, GContext* ctx) {
   draw_hand(ctx, hours_center, hour_angle_degrees % 360, hour_hand_width, hour_hand_length);
 
   // draw minutes watchface in a hexagon
-  GPoint minutes_center = hex_centers[4];
+  GPoint minutes_center = big_hex_centers[MIN_FACE_HEX_IDX];
   draw_ticks(ctx, minutes_center, radius, false);
   int minute_hand_width = 8;
   int minute_hand_length = radius * 9 / 10;
   draw_hand(ctx, minutes_center, now->tm_min * DEG_PER_MIN, minute_hand_width, minute_hand_length);
 
   // draw day of week in a hexagon
-  draw_wday(ctx, hex_centers[3], H, now->tm_wday);
+  draw_wday(ctx, lil_hex_centers, lil_hex_height, now->tm_wday);
 }
 
 static void window_load(Window* window) {
