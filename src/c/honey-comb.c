@@ -236,10 +236,19 @@ static void update_layer(Layer* layer, GContext* ctx) {
     fast_forward_time(now);
   }
 
+
   GRect bounds = layer_get_bounds(layer);
   int H = (bounds.size.h - 2) * 4 / 7;
   int W = hex_width(H);
   int hex_boundary_stroke_width = max(3, H / 30);
+
+  int lil_rows[10] = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10};
+  GPoint lil_hex_centers[100];
+  tessellate(ctx, bounds.origin, H / 10, true, lil_rows, 10, lil_hex_centers);
+  for (int i = 0; i < 100; i++) {
+    draw_hexagon(ctx, lil_hex_centers[i], H);
+  }
+
   int rows[2] = {3, 3};
   GPoint hex_centers[6];
   tessellate(ctx, bounds.origin, H, true, rows, 2, hex_centers);
