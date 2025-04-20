@@ -13,6 +13,87 @@ static char s_buffer[BUFFER_LEN];
 static GPath* s_hexagon;
 static GPath* s_arrow;
 
+static void draw_one_digit(GContext* ctx, int digit, GRect bbox) {
+  int x = bbox.origin.x + 1;
+  int y = bbox.origin.y;
+  int w = bbox.size.w - 2;
+  int h = bbox.size.h;
+  GPoint tl = GPoint(x,     y);
+  GPoint tr = GPoint(x + w, y);
+  GPoint ml = GPoint(x,     y + h / 2);
+  GPoint mr = GPoint(x + w, y + h / 2);
+  GPoint bl = GPoint(x,     y + h);
+  GPoint br = GPoint(x + w, y + h);
+  if (digit == 0) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tr, br);
+    graphics_draw_line(ctx, br, bl);
+    graphics_draw_line(ctx, bl, tl);
+  } else if (digit == 1) {
+    GPoint tc = GPoint(x + w / 2, y);
+    GPoint bc = GPoint(x + w / 2, y + h);
+    graphics_draw_line(ctx, tc, bc);
+  } else if (digit == 2) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tr, mr);
+    graphics_draw_line(ctx, mr, ml);
+    graphics_draw_line(ctx, ml, bl);
+    graphics_draw_line(ctx, bl, br);
+  } else if (digit == 3) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tr, br);
+    graphics_draw_line(ctx, mr, ml);
+    graphics_draw_line(ctx, br, bl);
+  } else if (digit == 4) {
+    graphics_draw_line(ctx, tl, ml);
+    graphics_draw_line(ctx, ml, mr);
+    graphics_draw_line(ctx, tr, br);
+  } else if (digit == 5) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tl, ml);
+    graphics_draw_line(ctx, ml, mr);
+    graphics_draw_line(ctx, mr, br);
+    graphics_draw_line(ctx, br, bl);
+  } else if (digit == 6) {
+    graphics_draw_line(ctx, tr, tl);
+    graphics_draw_line(ctx, tl, bl);
+    graphics_draw_line(ctx, bl, br);
+    graphics_draw_line(ctx, br, mr);
+    graphics_draw_line(ctx, mr, ml);
+  } else if (digit == 7) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tr, br);
+  } else if (digit == 8) {
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, ml, mr);
+    graphics_draw_line(ctx, bl, br);
+    graphics_draw_line(ctx, tl, bl);
+    graphics_draw_line(ctx, tr, br);
+  } else if (digit == 9) {
+    graphics_draw_line(ctx, mr, ml);
+    graphics_draw_line(ctx, ml, tl);
+    graphics_draw_line(ctx, tl, tr);
+    graphics_draw_line(ctx, tr, br);
+    graphics_draw_line(ctx, br, bl);
+  }
+}
+
+static void draw_digits(GContext* ctx, int digits, GRect bbox) {
+  int tens = digits / 10;
+  GRect ones_bbox;
+  graphics_context_set_stroke_color(ctx, COL_DK);
+  graphics_context_set_stroke_width(ctx, 1);
+  if (tens != 0) {
+    GRect tens_bbox = GRect(bbox.origin.x,                   bbox.origin.y, bbox.size.w / 2, bbox.size.h);
+    ones_bbox       = GRect(bbox.origin.x + bbox.size.w / 2, bbox.origin.y, bbox.size.w / 2, bbox.size.h);
+    draw_one_digit(ctx, tens, tens_bbox);
+  } else {
+    ones_bbox       = GRect(bbox.origin.x + bbox.size.w / 4, bbox.origin.y, bbox.size.w / 2, bbox.size.h);
+  }
+  int ones = digits % 10;
+  draw_one_digit(ctx, ones, ones_bbox);
+}
+
 static const GPathInfo HEXAGON_POINTS = {
   .num_points = 6,
   // points will be filled by fill_hexagon_points
@@ -120,21 +201,20 @@ static void tessellate(GContext* ctx, GRect bounds, int stroke_w, int H, GPoint*
   int hsl = hex_half_side_length(H);
   int y_stride = H / 2 + hsl;
   int x_stride = W;
-  int row_stagger = false;
-  int y_begin = bounds.origin.y - hsl + 1;
+  int row_stagger = true;
+  int y_begin = bounds.origin.y + 2 * hsl + 1;
   int visible_center_count = 0;
-  for (int y = y_begin; y <= bounds.size.h + y_stride; y += y_stride) {
-    int x_begin = -x_stride - row_stagger * W / 2 + W / 8;
-    for (int x = x_begin; x <= bounds.size.w + x_stride; x += x_stride) {
+  int i = 0;
+  int num_rows = 2;
+  int num_cols = 3;
+  for (int r = 0; r < num_rows; r++) {
+    int y = y_begin + y_stride * r;
+    int x_begin = bounds.origin.x + x_stride / 8 - row_stagger * x_stride / 2;
+    for (int c = 0; c < num_cols; c++) {
+      int x = x_begin + x_stride * c;
       GPoint center = GPoint(x, y);
       draw_hexagon(ctx, center, stroke_w, H);
-      if (center.x - W / 2 >= 0
-       && center.x + W / 2 <= bounds.size.w
-       && center.y - H / 2 >= 0
-       && center.y + H / 2 <= bounds.size.h) {
-        visible_centers[visible_center_count] = center;
-        visible_center_count++;
-      }
+      visible_centers[i++] = center;
     }
     row_stagger = !row_stagger;
   }
@@ -182,90 +262,8 @@ static void draw_hand(GContext* ctx, GPoint center, int angle_deg, int hand_widt
   graphics_fill_circle(ctx, center, 2);
 }
 
-static void draw_one_digit(GContext* ctx, int digit, GRect bbox) {
-  int x = bbox.origin.x + 1;
-  int y = bbox.origin.y;
-  int w = bbox.size.w - 2;
-  int h = bbox.size.h;
-  GPoint tl = GPoint(x,     y);
-  GPoint tr = GPoint(x + w, y);
-  GPoint ml = GPoint(x,     y + h / 2);
-  GPoint mr = GPoint(x + w, y + h / 2);
-  GPoint bl = GPoint(x,     y + h);
-  GPoint br = GPoint(x + w, y + h);
-  if (digit == 0) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tr, br);
-    graphics_draw_line(ctx, br, bl);
-    graphics_draw_line(ctx, bl, tl);
-  } else if (digit == 1) {
-    GPoint tc = GPoint(x + w / 2, y);
-    GPoint bc = GPoint(x + w / 2, y + h);
-    graphics_draw_line(ctx, tc, bc);
-  } else if (digit == 2) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tr, mr);
-    graphics_draw_line(ctx, mr, ml);
-    graphics_draw_line(ctx, ml, bl);
-    graphics_draw_line(ctx, bl, br);
-  } else if (digit == 3) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tr, br);
-    graphics_draw_line(ctx, mr, ml);
-    graphics_draw_line(ctx, br, bl);
-  } else if (digit == 4) {
-    graphics_draw_line(ctx, tl, ml);
-    graphics_draw_line(ctx, ml, mr);
-    graphics_draw_line(ctx, tr, br);
-  } else if (digit == 5) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tl, ml);
-    graphics_draw_line(ctx, ml, mr);
-    graphics_draw_line(ctx, mr, br);
-    graphics_draw_line(ctx, br, bl);
-  } else if (digit == 6) {
-    graphics_draw_line(ctx, tr, tl);
-    graphics_draw_line(ctx, tl, bl);
-    graphics_draw_line(ctx, bl, br);
-    graphics_draw_line(ctx, br, mr);
-    graphics_draw_line(ctx, mr, ml);
-  } else if (digit == 7) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tr, br);
-  } else if (digit == 8) {
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, ml, mr);
-    graphics_draw_line(ctx, bl, br);
-    graphics_draw_line(ctx, tl, bl);
-    graphics_draw_line(ctx, tr, br);
-  } else if (digit == 9) {
-    graphics_draw_line(ctx, mr, ml);
-    graphics_draw_line(ctx, ml, tl);
-    graphics_draw_line(ctx, tl, tr);
-    graphics_draw_line(ctx, tr, br);
-    graphics_draw_line(ctx, br, bl);
-  }
-}
-
-static void draw_digits(GContext* ctx, int digits, GRect bbox) {
-  int tens = digits / 10;
-  GRect ones_bbox;
-  graphics_context_set_stroke_color(ctx, COL_DK);
-  graphics_context_set_stroke_width(ctx, 1);
-  if (tens != 0) {
-    GRect tens_bbox = GRect(bbox.origin.x,                   bbox.origin.y, bbox.size.w / 2, bbox.size.h);
-    ones_bbox       = GRect(bbox.origin.x + bbox.size.w / 2, bbox.origin.y, bbox.size.w / 2, bbox.size.h);
-    draw_one_digit(ctx, tens, tens_bbox);
-  } else {
-    ones_bbox       = GRect(bbox.origin.x + bbox.size.w / 4, bbox.origin.y, bbox.size.w / 2, bbox.size.h);
-  }
-  int ones = digits % 10;
-  draw_one_digit(ctx, ones, ones_bbox);
-}
-
 static void draw_ticks(GContext* ctx, GPoint center, int radius, bool hour_text) {
   int text_bbox_height = max(10, radius / 4);
-  //APP_LOG(APP_LOG_LEVEL_DEBUG, "radius / 6 = %d, text_bbox_height %d", radius / 6, text_bbox_height);
   graphics_context_set_stroke_color(ctx, COL_DK);
   for (int16_t tick_minute = 0; tick_minute < 60; tick_minute += 5) {
     int tick_deg = tick_minute * DEG_PER_MIN;
@@ -308,7 +306,7 @@ static void update_layer(Layer* layer, GContext* ctx) {
   GPoint visible_centers[10];
   tessellate(ctx, bounds, hex_boundary_stroke_width, H, visible_centers);
   int radius = W / 2 - hex_boundary_stroke_width / 2;
-  GPoint hours_center = visible_centers[0];
+  GPoint hours_center = visible_centers[1];
 
   // draw hours watchface in a hexagon
   draw_ticks(ctx, hours_center, radius, true);
@@ -320,7 +318,7 @@ static void update_layer(Layer* layer, GContext* ctx) {
   draw_hand(ctx, hours_center, hour_angle_degrees % 360, hour_hand_width, hour_hand_length);
 
   // draw minutes watchface in a hexagon
-  GPoint minutes_center = visible_centers[1];
+  GPoint minutes_center = visible_centers[4];
   draw_ticks(ctx, minutes_center, radius, false);
   int minute_hand_width = 8;
   int minute_hand_length = radius * 9 / 10;
