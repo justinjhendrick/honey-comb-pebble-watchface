@@ -1,10 +1,19 @@
 {
   "name": "honey-comb",
   "author": "justinjhendrick",
-  "version": "1.0.0",
-  "keywords": ["pebble-watchface", "hexagon", "colorful", "analog"],
+  "version": "1.1.0",
+  "keywords": [
+    "pebble-watchface",
+    "hexagon",
+    "colorful",
+    "analog",
+    "digital",
+    "bees"
+  ],
   "private": false,
-  "dependencies": {},
+  "dependencies": {
+    "@rebble/clay": "^1.0.8"
+  },
   "pebble": {
     "displayName": "honey-comb",
     "uuid": "cf47074e-5e73-433f-ba1e-8d91f053f07a",
@@ -20,7 +29,9 @@
     "watchapp": {
       "watchface": true
     },
-    "messageKeys": [],
+    "messageKeys": [
+      "is_digital"
+    ],
     "resources": {
       "media": []
     }

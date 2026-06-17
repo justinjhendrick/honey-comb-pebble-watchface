@@ -1,0 +1,14 @@
+[
+  { "type": "heading", "defaultValue": "App Configuration" },
+  {
+    "type": "section",
+    "items": [
+      { "type": "heading", "defaultValue": "Behavior" },
+      { "type": "toggle",  "messageKey": "is_digital", "defaultValue": false, "label": "is_digital"}
+    ]
+  },
+  {
+    "type": "submit",
+    "defaultValue": "Save Settings"
+  }
+]

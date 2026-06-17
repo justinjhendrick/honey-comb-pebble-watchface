@@ -14,6 +14,7 @@ static Layer* s_layer;
 static char s_buffer[BUFFER_LEN];
 static GPath* s_hexagon;
 static GPath* s_arrow;
+static bool s_is_digital = false;
 
 static const GPathInfo HEXAGON_POINTS = {
   .num_points = 6,
@@ -260,7 +261,7 @@ static int draw_lil_hexes(GContext* ctx, GRect bounds, int big_hex_height, GPoin
   }
   return lil_height;
 }
-  
+
 static void draw_big_hexes(
   GContext* ctx,
   GRect bounds,
@@ -316,22 +317,32 @@ static void update_layer(Layer* layer, GContext* ctx) {
 
   int radius = W / 2 - hex_boundary_stroke_width / 2;
   GPoint hours_center = big_hex_centers[HOUR_FACE_HEX_IDX];
-
-  // draw hours watchface in a hexagon
-  draw_ticks(ctx, hours_center, radius, true);
-  int minutes_per_hour_hand_rev = 60 * 12;
-  int minutes_elapsed = now->tm_hour * 60 + now->tm_min;
-  int hour_angle_degrees = 360 * minutes_elapsed / minutes_per_hour_hand_rev;
-  int hour_hand_width = 9;
-  int hour_hand_length = radius * 7 / 10;
-  draw_hand(ctx, hours_center, hour_angle_degrees % 360, hour_hand_width, hour_hand_length);
-
-  // draw minutes watchface in a hexagon
   GPoint minutes_center = big_hex_centers[MIN_FACE_HEX_IDX];
-  draw_ticks(ctx, minutes_center, radius, false);
-  int minute_hand_width = 8;
-  int minute_hand_length = radius * 9 / 10;
-  draw_hand(ctx, minutes_center, now->tm_min * DEG_PER_MIN, minute_hand_width, minute_hand_length);
+
+  if (s_is_digital) {
+    GSize size = (GSize){.w = radius * 4 / 3, .h = radius * 4 / 3};
+    graphics_context_set_stroke_width(ctx, 5);
+    graphics_context_set_stroke_color(ctx, COL_DK);
+    GRect hour_bbox = rect_from_midpoint(hours_center, size);
+    draw_digits(ctx, now->tm_hour, hour_bbox);
+    GRect minute_bbox = rect_from_midpoint(minutes_center, size);
+    draw_digits(ctx, now->tm_min, minute_bbox);
+  } else {
+    // draw hours watchface in a hexagon
+    draw_ticks(ctx, hours_center, radius, true);
+    int minutes_per_hour_hand_rev = 60 * 12;
+    int minutes_elapsed = now->tm_hour * 60 + now->tm_min;
+    int hour_angle_degrees = 360 * minutes_elapsed / minutes_per_hour_hand_rev;
+    int hour_hand_width = 9;
+    int hour_hand_length = radius * 7 / 10;
+    draw_hand(ctx, hours_center, hour_angle_degrees % 360, hour_hand_width, hour_hand_length);
+
+    // draw minutes watchface in a hexagon
+    draw_ticks(ctx, minutes_center, radius, false);
+    int minute_hand_width = 8;
+    int minute_hand_length = radius * 9 / 10;
+    draw_hand(ctx, minutes_center, now->tm_min * DEG_PER_MIN, minute_hand_width, minute_hand_length);
+  }
 
   // draw day of week in a hexagon
   draw_wday(ctx, lil_hex_centers, lil_hex_height, now->tm_wday);
@@ -354,7 +365,27 @@ static void tick_handler(struct tm* now, TimeUnits units_changed) {
   layer_mark_dirty(window_get_root_layer(s_window));
 }
 
+static void load_settings() {
+  s_is_digital = persist_read_bool(MESSAGE_KEY_is_digital);
+}
+
+static void save_settings() {
+  persist_write_bool(MESSAGE_KEY_is_digital, s_is_digital);
+}
+
+static void inbox_received_handler(DictionaryIterator *iter, void *context) {
+  Tuple *t;
+  if ((t = dict_find(iter, MESSAGE_KEY_is_digital))) {
+    s_is_digital = t->value->int8;
+  }
+  save_settings();
+  if (s_layer) {
+    layer_mark_dirty(s_layer);
+  }
+}
+
 static void init(void) {
+  load_settings();
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
     .load = window_load,
@@ -364,6 +395,8 @@ static void init(void) {
   s_arrow = gpath_create(&ARROW_POINTS);
   s_hexagon = gpath_create(&HEXAGON_POINTS);
   tick_timer_service_subscribe(DEBUG_TIME ? SECOND_UNIT : MINUTE_UNIT, tick_handler);
+  app_message_register_inbox_received(inbox_received_handler);
+  app_message_open(1024, 64);
 }
 
 static void deinit(void) {
