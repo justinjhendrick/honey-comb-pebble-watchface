@@ -4,7 +4,7 @@
     "type": "section",
     "items": [
       { "type": "heading", "defaultValue": "Behavior" },
-      { "type": "toggle",  "messageKey": "is_digital", "defaultValue": false, "label": "is_digital", "capabilities": "PLATFORM_EMERY"}
+      { "type": "toggle",  "messageKey": "is_digital", "defaultValue": false, "label": "is_digital", "capabilities": ["PLATFORM_EMERY"]}
     ]
   },
   {
