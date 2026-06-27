@@ -33,7 +33,9 @@
       "is_digital"
     ],
     "resources": {
-      "media": []
+      "media": [
+        {"name": "FACULTY_74", "file": "fonts/FacultyGlyphic-Regular.ttf", "characterRegex": "[ 0-9]", "type": "font", "targetPlatforms": ["emery"]}
+      ]
     }
   }
 }

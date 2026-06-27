@@ -29,3 +29,8 @@ static int max(int a, int b) {
   }
   return b;
 }
+
+static int get_12h_hour(struct tm* now) {
+  int hour = now->tm_hour % 12;
+  return (hour == 0) ? 12 : hour;
+}

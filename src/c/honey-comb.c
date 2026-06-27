@@ -3,8 +3,12 @@
 #include "utils.h"
 
 #define DEBUG_TIME (false)
+#define DEBUG_BBOX (false)
+#define FORCE_DIGITAL (false)
+
 #define BUFFER_LEN (100)
 #define DEG_PER_MIN (360 / 60)
+
 #define COL_BG (PBL_IF_BW_ELSE(GColorWhite, GColorChromeYellow))
 #define COL_LT (PBL_IF_BW_ELSE(GColorBlack, GColorYellow))
 #define COL_DK (PBL_IF_BW_ELSE(GColorBlack, GColorBulgarianRose))
@@ -15,6 +19,7 @@ static char s_buffer[BUFFER_LEN];
 static GPath* s_hexagon;
 static GPath* s_arrow;
 static bool s_is_digital = false;
+static GFont s_font_lg = NULL;
 
 static const GPathInfo HEXAGON_POINTS = {
   .num_points = 6,
@@ -86,6 +91,8 @@ static void fill_hexagon_points(int H) {
 
 static void fast_forward_time(struct tm* now) {
   now->tm_min = now->tm_sec % 60;
+  now->tm_hour = now->tm_sec % 24;
+  now->tm_wday = now->tm_sec % 7;
 }
 
 static void draw_hexagon(GContext* ctx, GPoint center, int H) {
@@ -319,14 +326,30 @@ static void update_layer(Layer* layer, GContext* ctx) {
   GPoint hours_center = big_hex_centers[HOUR_FACE_HEX_IDX];
   GPoint minutes_center = big_hex_centers[MIN_FACE_HEX_IDX];
 
-  if (s_is_digital) {
-    GSize size = (GSize){.w = radius * 4 / 3, .h = radius * 4 / 3};
-    graphics_context_set_stroke_width(ctx, 5);
-    graphics_context_set_stroke_color(ctx, COL_DK);
+  if ((FORCE_DIGITAL || s_is_digital) && s_font_lg != NULL) {
+    GSize size = (GSize){.w = radius * 2, .h = 90};
+    int shift_up = 0;
+    graphics_context_set_text_color(ctx, COL_DK);
     GRect hour_bbox = rect_from_midpoint(hours_center, size);
-    draw_digits(ctx, now->tm_hour, hour_bbox);
+    hour_bbox.origin.y -= shift_up;
+    if (clock_is_24h_style()) {
+      strftime(s_buffer, BUFFER_LEN, "%H", now);
+    } else {
+      snprintf(s_buffer, BUFFER_LEN, "%d", get_12h_hour(now));
+    }
+    graphics_draw_text(ctx, s_buffer, s_font_lg, hour_bbox, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+
     GRect minute_bbox = rect_from_midpoint(minutes_center, size);
-    draw_digits(ctx, now->tm_min, minute_bbox);
+    minute_bbox.origin.y -= shift_up;
+    strftime(s_buffer, BUFFER_LEN, "%M", now);
+    graphics_draw_text(ctx, s_buffer, s_font_lg, minute_bbox, GTextOverflowModeWordWrap, GTextAlignmentCenter, NULL);
+
+    if (DEBUG_BBOX) {
+      graphics_context_set_stroke_width(ctx, 1);
+      graphics_context_set_stroke_color(ctx, GColorBlack);
+      graphics_draw_rect(ctx, hour_bbox);
+      graphics_draw_rect(ctx, minute_bbox);
+    }
   } else {
     // draw hours watchface in a hexagon
     draw_ticks(ctx, hours_center, radius, true);
@@ -379,12 +402,13 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
     s_is_digital = t->value->int8;
   }
   save_settings();
-  if (s_layer) {
-    layer_mark_dirty(s_layer);
-  }
+  if (s_layer) layer_mark_dirty(s_layer);
 }
 
 static void init(void) {
+#if defined(PBL_PLATFORM_EMERY)
+  s_font_lg = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FACULTY_74));
+#endif
   load_settings();
   s_window = window_create();
   window_set_window_handlers(s_window, (WindowHandlers) {
@@ -400,7 +424,8 @@ static void init(void) {
 }
 
 static void deinit(void) {
-  window_destroy(s_window);
+  if (s_window) window_destroy(s_window);
+  if (s_font_lg) fonts_unload_custom_font(s_font_lg);
 }
 
 int main(void) {
